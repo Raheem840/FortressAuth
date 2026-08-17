@@ -1,7 +1,7 @@
 from fastapi import FastAPI  #import FastAPI class from fastapi module. FastAPI is a Python class that provides functionality for your API.
 from enum import Enum
 from pydantic import BaseModel
-from sqlmodel import Field, SQLModel, create_engine
+from sqlmodel import Field, Session, SQLModel, create_engine
 
 app = FastAPI()   #Create an instance of the FastAPI class.
 
@@ -11,7 +11,7 @@ async def read_health():
 
 class User(SQLModel, table=True):
     id : int | None = Field(default=None, primary_key=True)
-    email : str = Field(index=True)
+    email : str = Field(index=True,unique=True)
     hashed_password : str
     
 sqlite_file_name = "fortressauth.db"
@@ -21,6 +21,10 @@ engine = create_engine(sqlite_url, echo=True)
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
+    
+def get_session():
+    with Session(engine) as session:
+        yield session
 
 
 if __name__ == "__main__":
