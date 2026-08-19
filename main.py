@@ -1,5 +1,4 @@
 from fastapi import Depends, FastAPI, HTTPException, Query #import FastAPI class from fastapi module. FastAPI is a Python class that provides functionality for your API.
-from enum import Enum
 from pydantic import BaseModel
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 from typing import Annotated
@@ -64,16 +63,25 @@ def register_user(user_data: UserCreate, session:SessionDep):
     session.refresh(new_user)
     
     return {"message":"User registered successfully", "user_id": new_user.id, "email": new_user.email}
+
+
+class UserLogin(BaseModel):#JSON model for user login data
+    email:str
+    password:str
+    
+@app.post("/login")
+def login_user(user_data: UserLogin, session:SessionDep):
+    statement = select(User).where(User.email == user_data.email)
+    user = session.exec(statement).first()
+    
+    if not user:
+        raise HTTPException(status_code=401,detail="Invalid email or password")
+    if not password_context.verify(user_data.password, user.hashed_password):
+        raise HTTPException(status_code=401,detail="Invalid email or password")
+    
+    return {"message":"Login successful"}
+    
+    
   
-#class ModelName(str, Enum):
-    #lexnet = "alexnet"
-    #resnet = "resnet"
-    #lenet = "lenet"
-#@app.get("/models/{model_name}")
-#async def get_model(model_name: ModelName):
-    #if model_name is ModelName.alexnet:
-     #   return {"model_name": model_name, "message": "Deep Learning FTW!"}
-    #if model_name.value == "lenet":
-    #    return {"model_name": model_name, "message": "LeCNN all the images"}
-    #return {"model_name": model_name, "message": "Have some residuals"}
+
 
