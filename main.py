@@ -5,6 +5,15 @@ from typing import Annotated
 from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
 
+from datetime import datetime, timedelta, timezone
+from jose import jwt
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+ALGORITHM = "HS256"
+
 app = FastAPI()   #Create an instance of the FastAPI class
 
 @app.get("/health")
@@ -78,10 +87,17 @@ def login_user(user_data: UserLogin, session:SessionDep):
         raise HTTPException(status_code=401,detail="Invalid email or password")
     if not password_context.verify(user_data.password, user.hashed_password):
         raise HTTPException(status_code=401,detail="Invalid email or password")
+    token = create_access_token(data={"sub":user.email}, expires_delta=timedelta(minutes=30))
     
-    return {"message":"Login successful"}
+    
+    return {"message":"Login successful", "access_token": token, "token_type": "bearer"}
     
     
   
-
-
+def create_access_token(data:dict, expires_delta: timedelta):
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + expires_delta
+    to_encode.update({"exp":expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+    
