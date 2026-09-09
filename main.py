@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException, Query #import FastAPI class from fastapi module. FastAPI is a Python class that provides functionality for your API.
+from fastapi import Depends, FastAPI, HTTPException, Request #import FastAPI class from fastapi module. FastAPI is a Python class that provides functionality for your API.
 from pydantic import BaseModel
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 from typing import Annotated
@@ -10,6 +10,14 @@ from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
 import os
 from dotenv import load_dotenv
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+
+
+
 
 load_dotenv()
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
@@ -79,8 +87,14 @@ class UserLogin(BaseModel):#JSON model for user login data
     email:str
     password:str
     
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    
 @app.post("/login")
-def login_user(user_data: UserLogin, session:SessionDep):
+@limiter.limit("5/minute")
+def login_user(request: Request,user_data: UserLogin, session:SessionDep):
     statement = select(User).where(User.email == user_data.email)
     user = session.exec(statement).first()
     
@@ -127,3 +141,5 @@ def get_current_user( session:SessionDep,token: str = Depends(oauth2_scheme)):
 @app.get("/profile")
 def get_profile(current_user: User = Depends(get_current_user)):
     return {"email": current_user.email}
+
+
