@@ -4,9 +4,10 @@ from sqlmodel import Field, Session, SQLModel, create_engine, select
 from typing import Annotated
 from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
+from fastapi.security import OAuth2PasswordBearer
 
 from datetime import datetime, timedelta, timezone
-from jose import jwt
+from jose import jwt, JWTError
 import os
 from dotenv import load_dotenv
 
@@ -101,3 +102,28 @@ def create_access_token(data:dict, expires_delta: timedelta):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
     
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+def get_current_user( session:SessionDep,token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code = 401,
+        detail = "Could not validate credentials",
+        headers = {"WWW-Authenticate":"Bearer"}
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email:str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    statement = select(User).where(User.email == email)
+    user = session.exec(statement).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+@app.get("/profile")
+def get_profile(current_user: User = Depends(get_current_user)):
+    return {"email": current_user.email}
